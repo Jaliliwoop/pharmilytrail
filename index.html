@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link href="https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,800;1,800&family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@4.3.0/fonts/remixicon.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <title>Clinical Trail | Pharmily Oz</title>
+    <style type="text/tailwindcss">
+        :root { 
+            --p-teal: #14b8a6; /* Main teal */
+            --p-dark: #0f766e; /* Darker teal */
+            --p-accent: #fbbf24; /* Gold accent */
+            --p-bg: #f8fafc; /* Crisp light gray background */
+        }
+        @theme { --font-family-brand: 'Exo 2', sans-serif; --font-family-base: 'Poppins', sans-serif; }
+        
+        body { 
+            background-color: var(--p-bg);
+            color: #1e293b;
+            overflow: hidden; 
+            position: fixed; 
+            width: 100%; 
+            height: 100%; 
+        }
+
+        .pharmily-title {
+            font-family: var(--font-family-brand); font-weight: 800; font-style: italic; text-transform: uppercase;
+            background: linear-gradient(135deg, #0d9488 0%, #14b8a6 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            letter-spacing: -1.5px;
+        }
+
+        /* The Game Grid: Clean & Pop */
+        canvas { 
+            background-color: white; 
+            image-rendering: pixelated; 
+            touch-action: none; 
+            box-shadow: 0 15px 35px -5px rgba(20, 184, 166, 0.15), 0 10px 15px -10px rgba(0, 0, 0, 0.1);
+            border: 6px solid #e2e8f0;
+        }
+
+        /* Preventing accidental zoom/selection on swiping */
+        * { user-select: none; -webkit-tap-highlight-color: transparent; touch-action: none; }
+    </style>
+</head>
+<body class="font-base">
+
+    <header class="p-5 flex justify-between items-center bg-white shadow-sm border-b border-slate-100">
+        <div class="flex items-center gap-2">
+            <span class="bg-slate-900 text-white font-bold px-2 py-0.5 rounded text-[10px]">OZ</span>
+            <h1 class="pharmily-title text-2xl tracking-tighter">Pharmily<span>Trail</span></h1>
+        </div>
+        <div class="flex items-center gap-5">
+            <div class="text-right">
+                <span class="text-[10px] block font-extrabold text-slate-400 tracking-wider">PROCESSED</span>
+                <span id="score" class="text-3xl font-black text-teal-600">0</span>
+            </div>
+            <button id="muteBtn" class="w-10 h-10 flex items-center justify-center bg-slate-100 rounded-full text-slate-500 hover:text-teal-600 active:scale-95 transition-all">
+                <i id="muteIcon" class="ri-volume-up-line text-2xl"></i>
+            </button>
+        </div>
+    </header>
+
+    <div id="startScreen" class="absolute inset-0 z-50 flex items-center justify-center bg-white/95 backdrop-blur-md p-10">
+        <div class="max-w-sm w-full text-center space-y-8">
+            <div class="text-8xl animate-bounce">👩🏻‍🔬</div>
+            <div>
+                <h2 class="pharmily-title text-5xl mb-3">Rush Hour</h2>
+                <p class="text-sm text-slate-500 leading-relaxed">Afternoon scripts are piling up! Use <span class="font-bold text-teal-600">Swipe Gestures</span> (or Arrows) to navigate the dispensary. Don't let the team collide!</p>
+            </div>
+            <button id="startBtn" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-black py-5 rounded-2xl shadow-xl shadow-teal-600/30 transition-all uppercase tracking-widest text-lg">Start Shift</button>
+        </div>
+    </div>
+
+    <main class="flex-1 flex flex-col p-4 sm:p-6 lg:p-8 h-[calc(100vh-80px)] items-center justify-center">
+        
+        <div class="relative w-full aspect-[4/3] max-w-[900px] max-h-[600px] rounded-3xl overflow-hidden shadow-2xl">
+            <canvas id="gameCanvas" class="w-full h-full"></canvas>
+            
+            <div id="gameOver" class="hidden absolute inset-0 bg-white/95 backdrop-blur-xl flex flex-col items-center justify-center p-8 text-center z-40 animate-fadeIn">
+                <i class="ri-error-warning-fill text-8xl text-red-500 mb-4 animate-pulse"></i>
+                <h3 class="pharmily-title text-4xl !from-red-600 !to-red-800">Audit Failed</h3>
+                <p id="finalScore" class="mb-8 font-extrabold text-slate-600 uppercase tracking-widest text-lg"></p>
+                <button id="restartBtn" class="bg-slate-900 text-white font-black px-12 py-5 rounded-2xl hover:bg-teal-600 transition-all shadow-xl text-lg">Restart Shift</button>
+            </div>
+        </div>
+        <p class="text-xs text-slate-400 mt-4 sm:hidden">Swipe anywhere on screen to control the Pharmacist</p>
+    </main>
+
+    <script>
+        // --- AUDIO (Generated by Web Audio API) ---
+        const audio = new (window.AudioContext || window.webkitAudioContext)();
+        let muted = false;
+        function sfx(type) {
+            if(muted) return; if(audio.state==='suspended') audio.resume();
+            const o=audio.createOscillator(), g=audio.createGain();
+            o.connect(g); g.connect(audio.destination);
+            if(type==='hit'){ o.type='square'; o.frequency.setValueAtTime(100, audio.currentTime); o.frequency.exponentialRampToValueAtTime(1, audio.currentTime+0.3); g.gain.setValueAtTime(0.1, audio.currentTime); g.gain.linearRampToValueAtTime(0, audio.currentTime+0.3); }
+            else { o.type='sine'; o.frequency.setValueAtTime(800, audio.currentTime); o.frequency.exponentialRampToValueAtTime(1200, audio.currentTime+0.1); g.gain.setValueAtTime(0.08, audio.currentTime); g.gain.linearRampToValueAtTime(0, audio.currentTime+0.1); }
+            o.start(); o.stop(audio.currentTime+0.3);
+        }
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        
+        const GRID = 20; 
+        let width, height, cellSize;
+        let snake, food, dir, nextDir, score, speed, timer;
+
+        function resize() {
+            width = canvas.parentElement.clientWidth;
+            height = canvas.parentElement.clientHeight;
+            canvas.width = width; canvas.height = height;
+            cellSize = width / GRID;
+        }
+        window.onresize = resize; resize();
+
+        function init() {
+            snake = [{x: 5, y: 5}, {x: 4, y: 5}, {x: 3, y: 5}];
+            dir = nextDir = 'RIGHT';
+            score = 0; speed = 160;
+            spawnFood();
+            scoreEl.innerText = score;
+        }
+
+        function spawnFood() {
+            food = {
+                x: Math.floor(Math.random() * GRID),
+                y: Math.floor(Math.random() * (height/cellSize)),
+                icon: ['💊', '🧪', '📝', '🔬'][Math.floor(Math.random()*4)]
+            };
+        }
+
+        function step() {
+            dir = nextDir;
+            const head = {...snake[0]};
+            if(dir==='UP') head.y--; if(dir==='DOWN') head.y++;
+            if(dir==='LEFT') head.x--; if(dir==='RIGHT') head.x++;
+
+            // Collision
+            if(head.x<0 || head.x>=GRID || head.y<0 || head.y>=Math.floor(height/cellSize) || snake.some(s=>s.x===head.x && s.y===head.y)){
+                sfx('hit'); return gameOver();
+            }
+
+            snake.unshift(head);
+            if(head.x===food.x && head.y===food.y){
+                score++; scoreEl.innerText = score;
+                sfx('get');
+                speed = Math.max(70, speed - 3);
+                spawnFood();
+                resetTimer();
+            } else {
+                snake.pop();
+            }
+            draw();
+        }
+
+        function draw() {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0,0,width,height);
+            
+            // Subtle Grid
+            ctx.strokeStyle = '#f8fafc';
+            ctx.lineWidth = 1;
+            for(let i=0; i<GRID; i++) {
+                ctx.beginPath(); ctx.moveTo(i*cellSize, 0); ctx.lineTo(i*cellSize, height); ctx.stroke();
+            }
+
+            // Food
+            ctx.font = `${cellSize*0.75}px Arial`;
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(food.icon, food.x*cellSize + cellSize/2, food.y*cellSize + cellSize/2);
+
+            // Snake
+            snake.forEach((p, i) => {
+                ctx.fillStyle = i === 0 ? '#14b8a6' : '#ccfbf1';
+                if(i===0) {
+                    // Head
+                    ctx.fillText('👩🏻‍🔬', p.x*cellSize + cellSize/2, p.y*cellSize + cellSize/2);
+                } else {
+                    // Body
+                    ctx.beginPath();
+                    ctx.roundRect(p.x*cellSize+2, p.y*cellSize+2, cellSize-4, cellSize-4, 6);
+                    ctx.fill();
+                    // Connect segments
+                    ctx.strokeStyle = '#99f6e4';
+                    ctx.lineWidth = 1; ctx.stroke();
+                }
+            });
+        }
+
+        function resetTimer() { clearInterval(timer); timer = setInterval(step, speed); }
+        
+        function gameOver() {
+            clearInterval(timer);
+            document.getElementById('finalScore').innerText = `${score} Scripts Processed`;
+            document.getElementById('gameOver').classList.remove('hidden');
+        }
+
+        // --- INPUT HANDLING ---
+        const setDir = (d) => {
+            if(d==='UP' && dir!=='DOWN') nextDir='UP';
+            if(d==='DOWN' && dir!=='UP') nextDir='DOWN';
+            if(d==='LEFT' && dir!=='RIGHT') nextDir='LEFT';
+            if(d==='RIGHT' && dir!=='LEFT') nextDir='RIGHT';
+        };
+
+        // Keyboard
+        window.onkeydown = (e) => {
+            if(e.key.includes('Arrow')) setDir(e.key.replace('Arrow','').toUpperCase());
+            const map = {w:'UP', a:'LEFT', s:'DOWN', d:'RIGHT'};
+            if(map[e.key]) setDir(map[e.key]);
+        };
+
+        // Swipe Controls
+        let touchStartX = 0, touchStartY = 0;
+        document.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+        }, {passive: false});
+
+        document.addEventListener('touchmove', (e) => {
+            e.preventDefault(); // Prevents accidental scrolling during swipe
+        }, {passive: false});
+
+        document.addEventListener('touchend', (e) => {
+            const touchEndX = e.changedTouches[0].clientX;
+            const touchEndY = e.changedTouches[0].clientY;
+            
+            const dx = touchEndX - touchStartX;
+            const dy = touchEndY - touchStartY;
+            
+            const threshold = 30; // Min pixels for a swipe to register
+
+            if(Math.max(Math.abs(dx), Math.abs(dy)) > threshold) {
+                // Determine direction based on largest movement axis
+                if(Math.abs(dx) > Math.abs(dy)) {
+                    setDir(dx > 0 ? 'RIGHT' : 'LEFT');
+                } else {
+                    setDir(dy > 0 ? 'DOWN' : 'UP');
+                }
+            }
+        });
+
+        // Navigation
+        document.getElementById('startBtn').onclick = () => {
+            document.getElementById('startScreen').classList.add('hidden');
+            init(); resetTimer();
+        };
+        document.getElementById('restartBtn').onclick = () => {
+            document.getElementById('gameOver').classList.add('hidden');
+            init(); resetTimer();
+        };
+        document.getElementById('muteBtn').onclick = () => {
+            muted = !muted;
+            document.getElementById('muteIcon').className = muted ? 'ri-volume-mute-line text-2xl' : 'ri-volume-up-line text-2xl';
+        };
+    </script>
+</body>
+</html>
